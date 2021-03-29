@@ -65,7 +65,6 @@ impl Dir {
     }
 }
 
-//issues with <WIDTH, HEIGHT> constants, so made simpler
 #[derive(Debug,Copy,Clone,Eq,PartialEq)]
 pub struct Position {
     col: i16, row: i16
@@ -175,7 +174,7 @@ impl Rockets {
 #[derive(Copy,Debug,Clone,Eq,PartialEq)]
 pub struct Game {
     cannon: Cannon,
-    chickens: [Chicken; WIDTH*HEIGHT],
+    chickens: [[Chicken; WIDTH];HEIGHT],
     //rockets: [Rockets; WIDTH*(HEIGHT-2)],
 
     col: ModNumC<usize, WIDTH>,
@@ -190,13 +189,12 @@ impl Game {
     pub fn new() -> Self {
         let mut game = Game {
             cannon: Cannon::new(),
-            chickens: [Chicken::new(Position { col: 0, row: 0 }); WIDTH * HEIGHT],
+            chickens: [[Chicken::new(Position { col: 0, row: 0 }); WIDTH]; HEIGHT],
             //rockets: [Rockets::new(); WIDTH*(HEIGHT-2)],
 
             col: ModNumC::new(WIDTH),
             row: ModNumC::new(HEIGHT),
             cells: [[Cell::Empty; WIDTH]; HEIGHT],
-            //pos: Position { col: 0, row: 0 },
             countdown: UPDATE_FREQUENCY,
             status: Status::Normal,
             score: 0
@@ -227,7 +225,7 @@ impl Game {
         //     .take(self.num_letters.a())
         //     .map(|m| m.a())
         ModNumIterator::new(self.col)
-            .take(self.chickens.len())
+            .take(WIDTH)
             .map(|m| m.a())
     }
 
@@ -238,7 +236,6 @@ impl Game {
     }
 
     fn clear_current(&self) {
-        //plot(' ', self.cannon.pos.col.as_(), self.cannon.pos.row.as_(), ColorCode::new(Color::Black, Color::Black));
         for x in self.column_iter() {
             plot(' ', x, self.row.a(), ColorCode::new(Color::Black, Color::Black));
             plot(' ', x, self.cannon.pos.row.as_(), ColorCode::new(Color::Black, Color::Black));
@@ -246,9 +243,25 @@ impl Game {
     }
 
     fn update_location(&mut self) {
-        let mut x: usize = self.cannon.pos.col.as_();
-        x += self.cannon.dx.a();
+        self.cannon.pos.col += self.cannon.dx.a() as i16;
+        if self.cannon.pos.col >= BUFFER_WIDTH as i16 {
+            self.cannon.pos.col = 0
+        } else if self.cannon.pos.col < 0 {
+            self.cannon.pos.col = BUFFER_WIDTH as i16 - 1;
+        }
     }
+    // fn build_chick_array(&mut self) {
+    //     let mut count = 0;
+    //     for (i, x) in self.column_iter().enumerate() {
+    //         if count % 3 == 0 && count < WIDTH {
+    //             //self.chickens[count] = Chicken::new(Position{ col: x as i16, row: self.row.a() as i16 });
+    //             //self.chickens[i] = Chicken::new(Position { col: x as i16, row: self.row.a() as i16 });
+    //             //self.chickens[count] = Chicken::new(Position{ col: x as i16, row: i as i16 })];
+    //             self.chickens[x][i] = Chicken::new(Position{ col: x as i16, row: self.row.a() as i16 });
+    //         }
+    //         count += 1;
+    //     }
+    // }
 
     fn draw_current(&mut self) {
         let mut count = 0;
@@ -261,7 +274,7 @@ impl Game {
                     self.row.a(),
                     ColorCode::new(Color::Red, Color::Black)
                 );
-                self.chickens[count] = Chicken::new(Position { col: x as i16, row: self.row.a() as i16 });
+                //self.chickens[count] = Chicken::new(Position { col: x as i16, row: self.row.a() as i16 });
             }
             count += 1;
         }
@@ -344,4 +357,3 @@ impl Iterator for RowColIter{
         }
     }
 }
-
