@@ -7,6 +7,7 @@ use bare_metal_modulo::{ModNumC, MNum, ModNumIterator};
 use pluggable_interrupt_os::vga_buffer::{BUFFER_WIDTH, BUFFER_HEIGHT, plot, ColorCode, Color};
 use pc_keyboard::{DecodedKey, KeyCode};
 use num::traits::AsPrimitive;
+//use pluggable_interrupt_os::println;
 
 
 /// Enums Cell, Dir, Status and structs Position and RowColIter
@@ -36,35 +37,6 @@ pub enum Dir {
     N, S, E, W
 }
 
-impl Dir {
-    fn reverse(&self) -> Dir {
-        match self {
-            Dir::N => Dir::S,
-            Dir::S => Dir::N,
-            Dir::E => Dir::W,
-            Dir::W => Dir::E
-        }
-    }
-
-    fn left(&self) -> Dir {
-        match self {
-            Dir::N => Dir::W,
-            Dir::S => Dir::E,
-            Dir::E => Dir::N,
-            Dir::W => Dir::S
-        }
-    }
-
-    fn right(&self) -> Dir {
-        match self {
-            Dir::N => Dir::E,
-            Dir::S => Dir::W,
-            Dir::E => Dir::S,
-            Dir::W => Dir::N
-        }
-    }
-}
-
 #[derive(Debug,Copy,Clone,Eq,PartialEq)]
 pub struct Position {
     col: i16, row: i16
@@ -77,15 +49,6 @@ impl Position {
 
     pub fn row_col(&self) -> (usize, usize) {
         (self.row as usize, self.col as usize)
-    }
-
-    pub fn neighbor(&self, d: Dir) -> Position{
-        match d {
-            Dir::N => Position {row: self.row - 1, col: self.col},
-            Dir::S => Position {row: self.row + 1, col: self.col},
-            Dir::E => Position {row: self.row,     col: self.col + 1},
-            Dir::W => Position {row: self.row,     col: self.col - 1}
-        }
     }
 }
 
@@ -104,29 +67,11 @@ impl Cannon {
             dx: ModNumC::new(0)
         }
     }
-    fn set_pos(&mut self, position: Position) {
-        self.pos = position;
-    }
-
-
-    // /// Do both handle_raws in Game??
-    // fn handle_raw(&mut self, key: KeyCode) {
-    //     match key {
-    //         KeyCode::ArrowLeft => {
-    //             self.dx -= 1;
-    //         }
-    //         KeyCode::ArrowRight => {
-    //             self.dx += 1;
-    //         }
-    //         _ => {}
-    //     }
-    // }
 }
 
 #[derive(Copy,Debug,Clone,Eq,PartialEq)]
 pub struct Chicken {
     pos: Position,
-    //chick_array: [Position; WIDTH*(HEIGHT-2)],
     dir: Dir,
     active: bool
 }
@@ -135,7 +80,6 @@ impl Chicken {
     fn new(position: Position) -> Self{
         Chicken{
             pos: position,
-            //chick_array: [Position{ col: 0, row: 0 }; WIDTH*(HEIGHT-2)],
             dir: Dir::S,
             active: true
         }
@@ -153,30 +97,19 @@ pub struct Rockets {
 impl Rockets {
     fn new(position: Position) -> Self {
         Rockets {
-            ////gets its pos from cannon
             pos: position,
-            //array of positions is for rockets that are active at once, last position in array is one coming out of cannon?
             //rockets: [Position{ col: 0, row: 0 }; WIDTH*HEIGHT],
             dir: Dir::N,
             active: false //Only active on keypress
         }
     }
-    // fn handle_raw(&mut self, key: KeyCode) {
-    //     match key {
-    //         KeyCode::Spacebar => {
-    //             self.active = true;
-    //         }
-    //         _ => {}
-    //     }
-    // }
 }
 
 #[derive(Copy,Debug,Clone,Eq,PartialEq)]
 pub struct Game {
     cannon: Cannon,
     chickens: [[Chicken; WIDTH];HEIGHT],
-    //rockets: [Rockets; WIDTH*(HEIGHT-2)],
-
+    //rockets: [Rockets; WIDTH];HEIGHT],
     col: ModNumC<usize, WIDTH>,
     row: ModNumC<usize, HEIGHT>,
     cells: [[Cell; WIDTH]; HEIGHT],
@@ -190,7 +123,7 @@ impl Game {
         let mut game = Game {
             cannon: Cannon::new(),
             chickens: [[Chicken::new(Position { col: 0, row: 0 }); WIDTH]; HEIGHT],
-            //rockets: [Rockets::new(); WIDTH*(HEIGHT-2)],
+            //rockets: [Rockets::new(); WIDTH];HEIGHT],
 
             col: ModNumC::new(WIDTH),
             row: ModNumC::new(HEIGHT),
@@ -202,28 +135,19 @@ impl Game {
         game.reset();
         game
     }
+    fn get_chick_pos(self, chick: Chicken) -> Position {
+        chick.pos
+    }
+    fn set_chick_pos(self, mut chick: Chicken, position: Position) {
+        chick.pos = position
+    }
 
     fn reset(&mut self) {
         self.status = Status::Normal;
         self.score = 0;
     }
 
-    fn score(&self) -> u16 { self.score }
-
-    fn translate_icon(&mut self, row: usize, col: usize, icon: char) {
-        match icon {
-            '&' => self.cells[row][col] = Cell::Chicken,
-            '^' => {
-                self.cannon.set_pos(Position { col: col as i16, row: row as i16 });
-            },
-            _ => panic!("Unrecognized character: '{}'", icon)
-        }
-    }
-
     fn column_iter(&self) -> impl Iterator<Item=usize> {
-        // ModNumIterator::new(self.col)
-        //     .take(self.num_letters.a())
-        //     .map(|m| m.a())
         ModNumIterator::new(self.col)
             .take(WIDTH)
             .map(|m| m.a())
@@ -250,39 +174,29 @@ impl Game {
             self.cannon.pos.col = BUFFER_WIDTH as i16 - 1;
         }
     }
-    // fn build_chick_array(&mut self) {
-    //     let mut count = 0;
-    //     for (i, x) in self.column_iter().enumerate() {
-    //         if count % 3 == 0 && count < WIDTH {
-    //             //self.chickens[count] = Chicken::new(Position{ col: x as i16, row: self.row.a() as i16 });
-    //             //self.chickens[i] = Chicken::new(Position { col: x as i16, row: self.row.a() as i16 });
-    //             //self.chickens[count] = Chicken::new(Position{ col: x as i16, row: i as i16 })];
-    //             self.chickens[x][i] = Chicken::new(Position{ col: x as i16, row: self.row.a() as i16 });
-    //         }
-    //         count += 1;
-    //     }
-    // }
 
     fn draw_current(&mut self) {
-        let mut count = 0;
         for (_i, x) in self.column_iter().enumerate() {
-            //plot(self.letters[i], x, self.row.a(), ColorCode::new(Color::Cyan, Color::Black));
-            if count % 3 == 0 && count < WIDTH {
+            if x % 3 == 0 && x < WIDTH {
                 plot(
                     '&',
                     x,
                     self.row.a(),
                     ColorCode::new(Color::Red, Color::Black)
                 );
-                //self.chickens[count] = Chicken::new(Position { col: x as i16, row: self.row.a() as i16 });
+                self.chickens[self.row.a()][x] = Chicken::new(Position{ col: x as i16, row: self.row.a() as i16 });
             }
-            count += 1;
         }
+
         plot('^', self.cannon.pos.col.as_(), self.cannon.pos.row.as_(), ColorCode::new(Color::Cyan, Color::Black));
-        // if UPDATE_FREQUENCY == 0 {
-        //     for chick in self.chickens {
-        //
-        //     }
+
+        // Move chickens down.
+        if self.countdown_complete() {
+            for (x, chick) in self.chickens.iter().enumerate() {
+                let new_row = self.get_chick_pos(chick[x]).row - 1;
+                self.set_chick_pos(chick[x], Position{ col: x as i16, row: new_row as i16 })
+            }
+        }
     }
 
     pub fn countdown_complete(&mut self) -> bool {
@@ -296,20 +210,15 @@ impl Game {
     }
 
     pub fn key(&mut self, key: DecodedKey) {
-        // match self.status {
-        //     Status::Over => {
-        //         match key {
-        //             DecodedKey::RawKey(KeyCode::S) | DecodedKey::Unicode('s') => self.reset(),
-        //             _ => {}
-        //         }
-        //     }
-        //     _ => {
-        //         let key = key2dir(key);
-        //         if key.is_some() {
-        //             self.last_key = key;
-        //         }
-        //     }
-        // }
+        match self.status {
+            Status::Over => {
+                match key {
+                    DecodedKey::RawKey(KeyCode::S) | DecodedKey::Unicode('s') => self.reset(),
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
         match key {
             DecodedKey::RawKey(code) => self.handle_raw(code),
             //DecodedKey::Unicode(c) => self.handle_unicode(c),
@@ -320,11 +229,9 @@ impl Game {
     fn handle_raw(&mut self, key: KeyCode) {
         match key {
             KeyCode::ArrowLeft => {
-                //self.cannon.dx -= 1;
                 self.cannon.pos.col -= 1;
             }
             KeyCode::ArrowRight => {
-                //self.cannon.dx += 1;
                 self.cannon.pos.col += 1;
             }
             KeyCode::Spacebar => {
@@ -334,7 +241,6 @@ impl Game {
         }
     }
 }
-
 
 pub struct RowColIter {
     row: usize, col: usize
